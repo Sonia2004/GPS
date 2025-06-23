@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mapa de Rutas</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet-routing-machine/3.2.12/leaflet-routing-machine.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/jqueryui/1.12.1/jquery-ui.min.css" />
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <style>
+        body {
+            display: flex;
+            height: 100vh;
+            margin: 0;
+        }
+        #columna-mapa {
+            flex: 1;
+        }
+        #mapa {
+            height: 100vh;
+            width: 100%;
+        }
+        #columna-info {
+            width: 400px;
+            background: #b3c6f7;
+            padding: 15px;
+            overflow-y: auto;
+            border-left: 1px solid #ccc;
+        }
+        .grupo-entrada {
+            margin-bottom: 10px;
+        }
+        .grupo-entrada input {
+            margin-bottom: 5px;
+        }
+        #resultados {
+            margin-top: 10px;
+        }
+        #listaPuntos {
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div id="columna-mapa">
+        <div id="mapa"></div>
+    </div>
+
+    <div id="columna-info">
+        <div class="grupo-entrada">
+            <input type="text" id="origen" class="form-control" placeholder="Origen">
+            <input type="text" id="destino" class="form-control" placeholder="Destino">
+            <button class="btn btn-primary w-100" onclick="calcularRuta()">Calcular Ruta</button>
+        </div>
+        <div id="resultados">
+            <p id="distancia"></p>
+            <p id="gasolina"></p>
+            <p id="costo"></p>
+        </div>
+        <div id="listaPuntos">
+            <p><strong>Coordenadas:</strong></p>
+            <ol id="ordenPuntos"></ol>
+        </div>
+    </div>
+
+    <!-- Modales -->
+    <div class="modal fade" id="modalMapaNula" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Ubicación Nula</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">Ubicación no encontrada en el mapa.</div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-primary" data-bs-dismiss="modal">Aceptar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.min.js"></script>
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet-routing-machine/dist/leaflet-routing-machine.js"></script>
+    <script>
+        let mapa = L.map('mapa').setView([19.9561, -99.5307], 14);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap'
+        }).addTo(mapa);
+
+        let controlRuta;
+        let marcadores = [];
+
+        const precios = {
+            regular: 24.531
+        };
+        const consumo = {
+            regular: 10
+        };
+
+        function calcularRuta() {
+            const origen = document.getElementById('origen').value;
+            const destino = document.getElementById('destino').value;
+
+            if (!origen || !destino) return;
+
+            $.when(
+                $.getJSON(`https://nominatim.openstreetmap.org/search?format=json&q=${origen}`),
+                $.getJSON(`https://nominatim.openstreetmap.org/search?format=json&q=${destino}`)
+            ).done(function(data1, data2) {
+                if (!data1[0].length || !data2[0].length) {
+                    $('#modalMapaNula').modal('show');
+                    return;
+                }
+
+                const origenCoords = L.latLng(data1[0][0].lat, data1[0][0].lon);
+                const destinoCoords = L.latLng(data2[0][0].lat, data2[0][0].lon);
+
+                if (controlRuta) {
+                    mapa.removeControl(controlRuta);
+                }
+
+                controlRuta = L.Routing.control({
+                    waypoints: [origenCoords, destinoCoords],
+                    router: L.Routing.osrmv1({ serviceUrl: 'https://router.project-osrm.org/route/v1' }),
+                    createMarker: function() { return null; },
+                    lineOptions: {
+                        styles: [{ color: 'green', opacity: 1, weight: 5 }]
+                    }
+                }).on('routesfound', function(e) {
+                    const ruta = e.routes[0].summary;
+                    const distanciaKm = ruta.totalDistance / 1000;
+                    const litros = (distanciaKm * consumo.regular) / 100;
+                    const costo = litros * precios.regular;
+
+                    document.getElementById('distancia').innerHTML = `Distancia: ${distanciaKm.toFixed(2)} km`;
+                    document.getElementById('gasolina').innerHTML = `Gasolina: ${litros.toFixed(2)} L`;
+                    document.getElementById('costo').innerHTML = `Costo: $${costo.toFixed(2)} MXN`;
+
+                    document.getElementById('ordenPuntos').innerHTML = `
+                        <li>Origen: ${origenCoords.lat.toFixed(5)}, ${origenCoords.lng.toFixed(5)}</li>
+                        <li>Destino: ${destinoCoords.lat.toFixed(5)}, ${destinoCoords.lng.toFixed(5)}</li>
+                    `;
+
+                    mapa.fitBounds(L.latLngBounds([origenCoords, destinoCoords]));
+                }).addTo(mapa);
+            });
+        }
+
+        // Autocompletado
+        function activarAutocomplete(id) {
+            $(`#${id}`).autocomplete({
+                source: function(request, response) {
+                    $.getJSON(`https://nominatim.openstreetmap.org/search?format=json&limit=5&q=${request.term}`, function(data) {
+                        response(data.map(item => ({
+                            label: item.display_name,
+                            value: item.display_name
+                        })));
+                    });
+                },
+                minLength: 3
+            });
+        }
+
+        activarAutocomplete('origen');
+        activarAutocomplete('destino');
+    </script>
+</body>
+</html>

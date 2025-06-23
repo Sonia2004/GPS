@@ -1,0 +1,43 @@
+body {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    margin: 0;
+}
+#inputs {
+    padding: 10px;
+    background: #f4f4f4;
+    border-bottom: 1px solid #ccc;
+    display: flex;
+    flex-direction: column;
+}
+.input-group {
+    display: flex;
+    margin-bottom: 5px;
+}
+.input-group input {
+    flex: 1;
+    padding: 5px;
+    margin-right: 5px;
+}
+.input-group button {
+    padding: 5px;
+}
+#map {
+    flex: 1;
+}
+#results {
+    padding: 10px;
+    background: #f4f4f4;
+    border-top: 1px solid #ccc;
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 3px;
+    justify-content: space-between;
+}
+@media screen and (max-width: 480px) {
+    #results {
+        display: flex;
+        flex-wrap: wrap;
+    }
+}
