@@ -4,3 +4,4 @@ nbconvert
 nbformat
 papermill
 folium
+network
