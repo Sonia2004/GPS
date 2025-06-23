@@ -3,4 +3,4 @@ flask
 nbconvert
 nbformat
 papermill
-
+folium
